@@ -1,0 +1,32 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Code coverage profiles and other test artifacts
+*.out
+coverage.*
+*.coverprofile
+profile.cov
+
+# Dependency directories (often excluded, though Go modules manage dependencies now)
+# vendor/
+
+# Go workspace file
+go.work
+go.work.sum
+
+# Environment files (sensitive information, shouldn't be tracked)
+.env
+.env.*
+configs/config.local.yaml
+
+# Editor/IDE specific files and directories (optional, personal preference)
+.idea/
+.vscode/
+*.swp
