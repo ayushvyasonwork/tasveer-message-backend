@@ -6,6 +6,7 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/gorilla/websocket"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 // --------------------
@@ -104,7 +105,12 @@ func WebSocketHandler(w http.ResponseWriter, r *http.Request) {
 		"type":    "system",
 		"message": "connected to chat server",
 	})
-
+	senderID, err := primitive.ObjectIDFromHex(userID)
+	if err != nil {
+		log.Println("❌ Invalid userId ObjectID")
+		conn.Close()
+		return
+	}
 	// 7️⃣ Read loop
 	for {
 		var msg IncomingMessage
@@ -116,6 +122,6 @@ func WebSocketHandler(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 
-		handleMessage(userID, msg)
+		handleMessage(senderID, msg)
 	}
 }
