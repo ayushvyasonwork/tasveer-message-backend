@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/ayushvyasonwork/chatapp1/internal/middlewares"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/gorilla/websocket"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -20,8 +21,6 @@ type IncomingMessage struct {
 	To      string `json:"to"`
 	Content string `json:"content"`
 }
-
-var jwtSecret = []byte("1234")
 
 func WebsocketHandler(w http.ResponseWriter, r *http.Request) {
 	log.Println("🔥 GO WS HANDLER HIT")
@@ -40,15 +39,13 @@ func WebsocketHandler(w http.ResponseWriter, r *http.Request) {
 		conn.Close()
 		return
 	}
-
 	tokenStr := cookie.Value
-
 	// 3️⃣ Parse JWT
 	token, err := jwt.Parse(tokenStr, func(t *jwt.Token) (interface{}, error) {
 		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, jwt.ErrSignatureInvalid
 		}
-		return jwtSecret, nil
+		return middlewares.GetJWTSecret(), nil
 	})
 
 	// if err != nil || !token.Valid {

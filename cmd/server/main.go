@@ -17,7 +17,7 @@ func main() {
 	if err := godotenv.Load(); err != nil {
 		log.Println(".env file not found, falling back to environment variables")
 	}
-
+	
 	mongoURI := os.Getenv("MONGO_URI")
 	if mongoURI == "" {
 		log.Fatal("MONGO_URI not set")

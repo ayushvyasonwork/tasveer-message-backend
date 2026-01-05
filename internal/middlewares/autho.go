@@ -7,7 +7,12 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-var jwtSecret = []byte("123")
+var jwtSecret = []byte("1234")
+
+// GetJWTSecret returns the JWT secret used for token validation
+func GetJWTSecret() []byte {
+	return jwtSecret
+}
 
 func AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
