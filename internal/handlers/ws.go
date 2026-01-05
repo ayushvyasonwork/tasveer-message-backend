@@ -20,7 +20,7 @@ var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
 		origin := r.Header.Get("Origin")
 		return origin == "https://tasveer-one.vercel.app" ||
-			origin == "https://tasveer.ayushvyas.me"
+			origin == "https://tasveer.ayushvyas.me" || origin == "http://localhost:3000"
 	},
 }
 
@@ -37,7 +37,7 @@ type IncomingMessage struct {
 // JWT secret helper
 // --------------------
 func getJWTSecret() []byte {
-	return []byte("YOUR_JWT_SECRET") // replace with env-based secret
+	return []byte("1234") // replace with env-based secret
 }
 
 // --------------------
