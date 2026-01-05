@@ -26,17 +26,12 @@ func WebsocketHandler(w http.ResponseWriter, r *http.Request) {
 	log.Println("🔥 GO WS HANDLER HIT")
 
 	// 1️⃣ Upgrade first
-	conn, err := upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		log.Println("❌ WS upgrade failed:", err)
-		return
-	}
 
 	// 2️⃣ Read JWT from cookie
 	cookie, err := r.Cookie("token")
 	if err != nil {
 		log.Println("❌ Token cookie missing")
-		conn.Close()
+
 		return
 	}
 	tokenStr := cookie.Value
@@ -53,7 +48,11 @@ func WebsocketHandler(w http.ResponseWriter, r *http.Request) {
 	// 	conn.Close()
 	// 	return
 	// }
-
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		log.Println("❌ WS upgrade failed:", err)
+		return
+	}
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if !ok {
 		log.Println("❌ Invalid JWT claims")
