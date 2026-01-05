@@ -1,111 +1,121 @@
 package handlers
 
 import (
-	"encoding/json"
 	"log"
 	"net/http"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/gorilla/websocket"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
+// --------------------
+// WebSocket upgrader
+// --------------------
 var upgrader = websocket.Upgrader{
+	ReadBufferSize:  1024,
+	WriteBufferSize: 1024,
+
+	// IMPORTANT: allow your frontend origin
 	CheckOrigin: func(r *http.Request) bool {
-		return true
+		origin := r.Header.Get("Origin")
+		return origin == "https://tasveer-one.vercel.app" ||
+			origin == "https://tasveer.ayushvyas.me"
 	},
 }
-var jwtSecret = "1234"
 
+// --------------------
+// Incoming WS message
+// --------------------
 type IncomingMessage struct {
-	To      string `json:"to"`
-	Content string `json:"content"`
+	Type    string `json:"type"`
+	To      string `json:"to,omitempty"`
+	Content string `json:"content,omitempty"`
 }
 
-func WebsocketHandler(w http.ResponseWriter, r *http.Request) {
-	// extract the token string from request query
-	// parse token
-	// from token extract the claims
-	// upgrad to websocket
-	// register connection
-	// keep connection alive
-	log.Println("🔥 GO WS HANDLER HIT")
+// --------------------
+// JWT secret helper
+// --------------------
+func getJWTSecret() []byte {
+	return []byte("YOUR_JWT_SECRET") // replace with env-based secret
+}
 
-	cookie, err := r.Cookie("token")
-	if err != nil {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
+// --------------------
+// Main WS handler
+// --------------------
+func WebSocketHandler(w http.ResponseWriter, r *http.Request) {
+	log.Println("🔥 WS HANDSHAKE REQUEST")
+
+	// 1️⃣ Extract short-lived WS token
+	wsToken := r.URL.Query().Get("token")
+	if wsToken == "" {
+		log.Println("❌ WS token missing")
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	log.Println("🔥 GO WS HANDLER HIT 1")
-	tokenStr := cookie.Value
-	log.Println("🔥 GO WS HANDLER HIT 2")
-	token, err := jwt.Parse(tokenStr, func(t *jwt.Token) (interface{}, error) {
+
+	// 2️⃣ Validate WS token
+	token, err := jwt.Parse(wsToken, func(t *jwt.Token) (interface{}, error) {
 		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, jwt.ErrSignatureInvalid
 		}
-		return jwtSecret, nil
+		return getJWTSecret(), nil
 	})
-	log.Println("🔥 GO WS HANDLER HIT 3")
-	// if err != nil || !token.Valid {
-	// 	http.Error(w, "invalid token", http.StatusUnauthorized)
-	// 	return
-	// }
-	log.Println("🔥 GO WS HANDLER HIT 4")
+
+	if err != nil || !token.Valid {
+		log.Println("❌ Invalid WS token:", err)
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
 	claims, ok := token.Claims.(jwt.MapClaims)
-	log.Println("🔥 GO WS HANDLER HIT 5")
 	if !ok {
-		http.Error(w, "invalid claims", http.StatusUnauthorized)
+		log.Println("❌ Invalid token claims")
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
-	userIDHex, ok := claims["id"].(string)
-	log.Println("🔥 GO WS HANDLER HIT 6")
-	if !ok {
-		http.Error(w, "invalid token payload", http.StatusUnauthorized)
+	// 3️⃣ Ensure this is a WS-only token
+	if claims["type"] != "ws" {
+		log.Println("❌ Not a WS token")
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	senderID, err := primitive.ObjectIDFromHex(userIDHex)
-	log.Println("🔥 GO WS HANDLER HIT 7")
-	if err != nil {
-		http.Error(w, "invalid user id", http.StatusUnauthorized)
+
+	userID, ok := claims["id"].(string)
+	if !ok || userID == "" {
+		log.Println("❌ Invalid user ID in token")
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
+
+	// 4️⃣ Upgrade to WebSocket
 	conn, err := upgrader.Upgrade(w, r, nil)
-	log.Println("🔥 GO WS HANDLER HIT 8")
 	if err != nil {
+		log.Println("❌ WS upgrade failed:", err)
 		return
 	}
 
-	log.Printf("✅ WS CONNECTED: user=%s remote=%s\n",
-		userIDHex,
-		r.RemoteAddr,
-	)
-	// fmt.Printf("the conn value is %+v", conn)
-	RegisterClient(userIDHex, conn)
-	welcome := map[string]string{
+	// 5️⃣ Register client
+	RegisterClient(userID, conn)
+	log.Printf("✅ WS CONNECTED: user=%s\n", userID)
+
+	// 6️⃣ Send welcome message
+	conn.WriteJSON(map[string]string{
 		"type":    "system",
-		"message": "connected to go websocket",
-	}
+		"message": "connected to chat server",
+	})
 
-	bytes, _ := json.Marshal(welcome)
-	conn.WriteMessage(websocket.TextMessage, bytes)
-
+	// 7️⃣ Read loop
 	for {
-		_, data, err := conn.ReadMessage()
+		var msg IncomingMessage
+		err := conn.ReadJSON(&msg)
 		if err != nil {
-			log.Println("❌ WS closed for user:", userIDHex)
-			RemoveClient(userIDHex)
+			log.Printf("❌ WS DISCONNECTED: user=%s\n", userID)
+			RemoveClient(userID)
 			conn.Close()
 			break
 		}
 
-		var msg IncomingMessage
-		if err := json.Unmarshal(data, &msg); err != nil {
-			log.Println("❌ Invalid WS payload")
-			continue
-		}
-
-		handleMessage(senderID, msg)
+		handleMessage(userID, msg)
 	}
-
 }
